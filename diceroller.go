@@ -13,12 +13,11 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/joho/godotenv"
 	_ "modernc.org/sqlite" // blank import registers the driver with database/sql
 )
 
 var db *sql.DB
-
-var tablePassphrase = os.Getenv("TABLE_PASS")
 
 var diceNotation = regexp.MustCompile(`^(\d+)d(\d+)([+-]\d+)?$`)
 
@@ -63,6 +62,7 @@ func HomePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func RollHandler(w http.ResponseWriter, r *http.Request) {
+	tablePassphrase := os.Getenv("TABLE_PASS")
 	if r.FormValue("password") != tablePassphrase {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = fmt.Fprint(w, `<p>Wrong passphrase.</p>`)
@@ -137,6 +137,10 @@ func RollHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 	if err := initDB(); err != nil {
 		log.Fatal("failed to open database: ", err)
 	}
@@ -147,7 +151,6 @@ func main() {
 	}()
 
 	fmt.Println("Dice Roller is listening on port 8080")
-	fmt.Println("Enter passphrase: " + tablePassphrase)
 	http.HandleFunc("/", HomePage)
 	http.HandleFunc("/roll", RollHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
