@@ -137,7 +137,7 @@ func RollHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load("/data/.env"); err != nil {
 
 		log.Print("Error loading .env file")
 	}
