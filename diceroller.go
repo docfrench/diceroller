@@ -64,7 +64,7 @@ func HomePage(w http.ResponseWriter, r *http.Request) {
 func RollHandler(w http.ResponseWriter, r *http.Request) {
 	if r.FormValue("password") != tablePassphrase {
 		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprint(w, `<p>Wrong passphrase.</p>`)
+		_, _ = fmt.Fprint(w, `<p>Wrong passphrase.</p>`)
 		return
 	}
 
@@ -73,13 +73,13 @@ func RollHandler(w http.ResponseWriter, r *http.Request) {
 	character := r.FormValue("character")
 	difficulty, err := strconv.Atoi(r.FormValue("difficulty"))
 	if err != nil || difficulty < 2 || difficulty > 10 {
-		fmt.Fprintf(w, `<p>Invalid difficulty: %s</p>`, r.FormValue("difficulty"))
+		_, _ = fmt.Fprintf(w, `<p>Invalid difficulty: %s</p>`, r.FormValue("difficulty"))
 		return
 	}
 
 	matches := diceNotation.FindStringSubmatch(notation)
 	if matches == nil {
-		fmt.Fprintf(w, `<p>Invalid notation: %s</p>`, notation)
+		_, _ = fmt.Fprintf(w, `<p>Invalid notation: %s</p>`, notation)
 		return
 	}
 
@@ -103,7 +103,7 @@ func RollHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `<p class="roll-reason">%s</p>`, reason)
 	}
 
-	fmt.Fprintf(w, `<p>%s rolled <strong>%d</strong> dice against difficulty %d → <br><br> <b>Rolls: %v</b><br><br>`,
+	_, _ = fmt.Fprintf(w, `<p>%s rolled <strong>%d</strong> dice against difficulty %d → <br><br> <b>Rolls: %v</b><br><br>`,
 		character, count, difficulty, rolls)
 	if successes > 0 {
 		fmt.Fprintf(w, `<span style="color:var(--good)"><strong>%d successes</strong></span></p>`, successes)
@@ -139,7 +139,11 @@ func main() {
 	if err := initDB(); err != nil {
 		log.Fatal("failed to open database: ", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Print("error closing database: ", err)
+		}
+	}()
 
 	fmt.Println("Dice Roller is running on http://localhost:8080")
 	http.HandleFunc("/", HomePage)
