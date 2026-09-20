@@ -17,7 +17,7 @@ import (
 
 var db *sql.DB
 
-const tablePassphrase = "changeme" // hardcoded for now — swap to os.Getenv later
+const tablePassphrase = os.environ["TABLE_PASS"]
 
 var diceNotation = regexp.MustCompile(`^(\d+)d(\d+)([+-]\d+)?$`)
 
