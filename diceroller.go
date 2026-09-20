@@ -100,7 +100,7 @@ func RollHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if reason != "" {
-		fmt.Fprintf(w, `<p class="roll-reason">%s</p>`, reason)
+		_, _ = fmt.Fprintf(w, `<p class="roll-reason">%s</p>`, reason)
 	}
 
 	_, _ = fmt.Fprintf(w, `<p>%s rolled <strong>%d</strong> dice against difficulty %d → <br><br> <b>Rolls: %v</b><br><br>`,
@@ -108,16 +108,16 @@ func RollHandler(w http.ResponseWriter, r *http.Request) {
 	if successes > 0 {
 		_, _ = fmt.Fprintf(w, `<span style="color:var(--good)"><strong>%d successes</strong></span></p>`, successes)
 	} else {
-		fmt.Fprintf(w, `<span style="color:var(--oxblood-bright)"><strong>%d successes</strong></span></p>`, successes)
+		_, _ = fmt.Fprintf(w, `<span style="color:var(--oxblood-bright)"><strong>%d successes</strong></span></p>`, successes)
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(rolls)))
 	for i := 0; i < count; i++ {
 		if rolls[i] >= difficulty {
-			fmt.Fprintf(w, `<span style="color:var(--good)">%d success</span><br> `, rolls[i])
+			_, _ = fmt.Fprintf(w, `<span style="color:var(--good)">%d success</span><br> `, rolls[i])
 		} else if rolls[i] == 1 {
-			fmt.Fprintf(w, `<span style="color:var(--oxblood-bright)">** %d botch **</span><br> `, rolls[i])
+			_, _ = fmt.Fprintf(w, `<span style="color:var(--oxblood-bright)">** %d botch **</span><br> `, rolls[i])
 		} else {
-			fmt.Fprintf(w, `<span style="color:var(--parchment-dim)">%d failure</span><br> `, rolls[i])
+			_, _ = fmt.Fprintf(w, `<span style="color:var(--parchment-dim)">%d failure</span><br> `, rolls[i])
 		}
 	}
 	rollsJSON, err := json.Marshal(rolls)
