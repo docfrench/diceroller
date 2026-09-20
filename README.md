@@ -1,4 +1,6 @@
-[![CI](https://github.com/docfrench/diceroller/actions/workflows/ci.yml/badge.svg)](https://github.com/docfrench/diceroller/actions/workflows/ci.yml) [![Go Reference](https://go.dev)](https://go.dev) ![GitHub Go version](https://shields.io)
+[![CI](https://github.com/docfrench/diceroller/actions/workflows/ci.yml/badge.svg)](https://github.com/docfrench/diceroller/actions/workflows/ci.yml) 
+[![Go Reference](https://go.dev)](https://go.dev) 
+[![GitHub Go version](https://shields.io)
 
 # diceroller
 
