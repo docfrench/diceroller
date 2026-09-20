@@ -57,7 +57,7 @@ jobs:
 
       - name: Write .env file
         run: |
-          cat <<EOF > /tmp/deimos-deploy.env
+          cat <<EOF > /tmp/dice-deploy.env
           TABLE_PASS=${{ vars.TABLE_PASS }}
           EOF
 
