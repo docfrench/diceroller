@@ -58,7 +58,7 @@ jobs:
       - name: Write .env file
         run: |
           cat <<EOF > /tmp/dice-deploy.env
-          TABLE_PASS=${{ vars.TABLE_PASS }}
+          TABLE_PASS=${{ secrets.TABLE_PASS }}
           EOF
 
       - name: Stop and remove old container
