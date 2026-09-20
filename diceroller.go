@@ -23,7 +23,7 @@ var diceNotation = regexp.MustCompile(`^(\d+)d(\d+)([+-]\d+)?$`)
 
 func initDB() error {
 	var err error
-	db, err = sql.Open("sqlite", "/rolls.db")
+	db, err = sql.Open("sqlite", "/data/rolls.db")
 	if err != nil {
 		return err
 	}
@@ -137,9 +137,9 @@ func RollHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if err := godotenv.Load(); err != nil {
+
+		log.Print("Error loading .env file")
 	}
 	if err := initDB(); err != nil {
 		log.Fatal("failed to open database: ", err)
