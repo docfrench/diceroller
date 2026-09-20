@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -17,7 +18,7 @@ import (
 
 var db *sql.DB
 
-const tablePassphrase = os.environ["TABLE_PASS"]
+const tablePassphrase = os.Getenv("TABLE_PASS")
 
 var diceNotation = regexp.MustCompile(`^(\d+)d(\d+)([+-]\d+)?$`)
 
