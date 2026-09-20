@@ -63,7 +63,7 @@ jobs:
           docker run -d \
             --name dice_roller \
             --network br0 \
-            -v /var/run/docker.sock:/var/run/docker.sock \
+            --ip 192.168.0.7 \
             -v /mnt/user/appdata/dice_roller:/data \
             -v /etc/localtime:/etc/localtime:ro \
             ghcr.io/${{ github.repository_owner }}/dice_roller:${{ github.sha }} 

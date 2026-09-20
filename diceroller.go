@@ -23,7 +23,7 @@ var diceNotation = regexp.MustCompile(`^(\d+)d(\d+)([+-]\d+)?$`)
 
 func initDB() error {
 	var err error
-	db, err = sql.Open("sqlite", "./rolls.db")
+	db, err = sql.Open("sqlite", "/data/rolls.db")
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func main() {
 		}
 	}()
 
-	fmt.Println("Dice Roller is running on http://localhost:8080")
+	fmt.Println("Dice Roller is listening on port 8080")
 	http.HandleFunc("/", HomePage)
 	http.HandleFunc("/roll", RollHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
