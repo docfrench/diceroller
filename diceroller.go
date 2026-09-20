@@ -106,7 +106,7 @@ func RollHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, `<p>%s rolled <strong>%d</strong> dice against difficulty %d → <br><br> <b>Rolls: %v</b><br><br>`,
 		character, count, difficulty, rolls)
 	if successes > 0 {
-		fmt.Fprintf(w, `<span style="color:var(--good)"><strong>%d successes</strong></span></p>`, successes)
+		_, _ = fmt.Fprintf(w, `<span style="color:var(--good)"><strong>%d successes</strong></span></p>`, successes)
 	} else {
 		fmt.Fprintf(w, `<span style="color:var(--oxblood-bright)"><strong>%d successes</strong></span></p>`, successes)
 	}
