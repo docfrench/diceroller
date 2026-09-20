@@ -23,7 +23,7 @@ var diceNotation = regexp.MustCompile(`^(\d+)d(\d+)([+-]\d+)?$`)
 
 func initDB() error {
 	var err error
-	db, err = sql.Open("sqlite", "/data/rolls.db")
+	db, err = sql.Open("sqlite", "/rolls.db")
 	if err != nil {
 		return err
 	}
