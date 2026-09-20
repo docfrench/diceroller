@@ -151,7 +151,6 @@ func main() {
 	}()
 
 	fmt.Println("Dice Roller is listening on port 8080")
-	fmt.Println("Enter passphrase: " + tablePassphrase)
 	http.HandleFunc("/", HomePage)
 	http.HandleFunc("/roll", RollHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
