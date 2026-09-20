@@ -1,0 +1,7 @@
+# Secrets / environment
+.env
+AGENTS.md
+*.bak
+*.json
+*.syslog
+*.db*

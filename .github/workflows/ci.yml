@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Golangci-lint
+        uses: golangci/golangci-lint-action@v9.3.0
+
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/dice_roller:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/dice_roller:latest
+  deploy:
+    runs-on: self-hosted
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Pull latest image
+        run: docker pull ghcr.io/${{ github.repository_owner }}/dice_roller:${{ github.sha }}
+
+      - name: Stop and remove old container
+        run: docker rm -f dice_roller || true
+
+      - name: Run new container
+        run: |
+          docker run -d \
+            --name dice_roller \
+            --network br0 \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v /mnt/user/appdata/dice_roller:/data \
+            -v /etc/localtime:/etc/localtime:ro \
+            ghcr.io/${{ github.repository_owner }}/dice_roller:${{ github.sha }} 
+            
+      
