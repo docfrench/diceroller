@@ -173,13 +173,13 @@
     </div>
 
     <form class="card" hx-post="/roll" hx-target="#result">
-        <div class="section-label">Character name</div>
+        <div class="section-label">Character name (optional but please fill in)</div>
         <input type="text" name="character" placeholder="e.g. Alice">
 
         <div class="section-label">Reason (optional)</div>
         <input type="text" name="reason" placeholder="e.g. Dex + Wits, dominate the scribe">
 
-        <div class="section-label">Dice</div>
+        <div class="section-label">Dice (in form of XdY)</div>
         <input type="text" name="notation" placeholder="e.g. 5d10" value="5d10">
 
         <div class="section-label">Difficulty</div>
@@ -192,6 +192,6 @@
     </form>
 
     <div id="result"></div>
-    <div id="roll-log" hx-ext="sse" sse-connect="/events" sse-swap="message" hx-swap="beforeend"></div>
+    <div id="roll-log" hx-ext="sse" sse-connect="/events" sse-swap="message" hx-swap="afterbegin"></div>
 </body>
 </html>
