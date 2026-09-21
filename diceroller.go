@@ -232,7 +232,7 @@ func formatRollLineAt(character, reason string, successes int, t time.Time) stri
 	}
 
 	return fmt.Sprintf("%s rolled %s: %d %s (%s)",
-		label, action, successes, successWord, time.Format("03:04:05PM"))
+		label, action, successes, successWord, t.Format("03:04:05PM"))
 }
 
 func EventsHandler(hub *Hub) http.HandlerFunc {
