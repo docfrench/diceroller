@@ -180,8 +180,10 @@ func RollHandler(hub *Hub) http.HandlerFunc {
 
 		}
 		line := formatRollLine(character, reason, successes)
+		htmlLine := fmt.Sprintf(`<div class="roll-entry">%s</div>`, line)
+
 		select {
-		case hub.broadcast <- line:
+		case hub.broadcast <- htmlLine:
 		default:
 			// nobody's listening right now, or the hub's momentarily busy —
 			// don't let a broadcast stall the roller's own response
