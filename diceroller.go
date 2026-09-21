@@ -216,6 +216,23 @@ func recentRolls(limit int) ([]string, error) {
 
 func formatRollLineAt(character, reason string, successes int, t time.Time) string {
 	// same body as formatRollLine, but using t.Format(...) instead of time.Now().Format(...)
+	label := character
+	if label == "" {
+		label = "Someone"
+	}
+
+	action := reason
+	if action == "" {
+		action = "a roll"
+	}
+
+	successWord := "successes"
+	if successes == 1 {
+		successWord = "success"
+	}
+
+	return fmt.Sprintf("%s rolled %s: %d %s (%s)",
+		label, action, successes, successWord, time.Format("03:04:05PM"))
 }
 
 func EventsHandler(hub *Hub) http.HandlerFunc {
