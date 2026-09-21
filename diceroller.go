@@ -199,7 +199,12 @@ func recentRolls(limit int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Print("error closing rows: ", err)
+		}
+	}()
 
 	var lines []string
 	for rows.Next() {
