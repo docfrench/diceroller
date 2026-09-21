@@ -191,6 +191,33 @@ func RollHandler(hub *Hub) http.HandlerFunc {
 	}
 }
 
+func recentRolls(limit int) ([]string, error) {
+	rows, err := db.Query(
+		`SELECT character, reason, successes, rolled_at FROM rolls ORDER BY rolled_at DESC LIMIT ?`,
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var lines []string
+	for rows.Next() {
+		var character, reason string
+		var successes int
+		var rolledAt time.Time
+		if err := rows.Scan(&character, &reason, &successes, &rolledAt); err != nil {
+			return nil, err
+		}
+		lines = append(lines, formatRollLineAt(character, reason, successes, rolledAt))
+	}
+	return lines, rows.Err()
+}
+
+func formatRollLineAt(character, reason string, successes int, t time.Time) string {
+	// same body as formatRollLine, but using t.Format(...) instead of time.Now().Format(...)
+}
+
 func EventsHandler(hub *Hub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		flusher, ok := w.(http.Flusher)
@@ -202,6 +229,18 @@ func EventsHandler(hub *Hub) http.HandlerFunc {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
+
+		history, err := recentRolls(20)
+		if err != nil {
+			log.Print("error loading roll history: ", err)
+		} else {
+			// reverse to chronological order (oldest first) since the query
+			// was DESC for LIMIT to grab the *most recent* N correctly
+			for i := len(history) - 1; i >= 0; i-- {
+				_, _ = fmt.Fprintf(w, "data: <div class=\"roll-entry\">%s</div>\n\n", history[i])
+			}
+			flusher.Flush()
+		}
 
 		ch := make(chan string)
 		hub.register <- ch
