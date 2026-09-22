@@ -79,7 +79,7 @@ func (h *Hub) Run() {
 
 func initDB() error {
 	var err error
-	db, err = sql.Open("sqlite", "/data/rolls.db")
+	db, err = sql.Open("sqlite", "./data/rolls.db")
 	if err != nil {
 		return err
 	}
@@ -128,10 +128,13 @@ func rollD20(r *http.Request, character, reason string) (RollResult, error) {
 	total := roll + modifier
 
 	note := ""
-	if roll == 20 {
+	switch {
+	case roll == 20:
 		note = `<span style="color:var(--good)"><strong>*~* Natural 20! *~*</strong></span>`
-	} else if roll == 1 {
+	case roll == 1:
 		note = `<span style="color:var(--oxblood-bright)"><strong>......Natural 1......</strong></span>`
+	default:
+		// no special note
 	}
 
 	var b strings.Builder
@@ -309,7 +312,11 @@ func recentRolls(limit int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Print("error closing rows: ", err)
+		}
+	}()
 
 	var lines []string
 	for rows.Next() {
