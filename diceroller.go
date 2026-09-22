@@ -79,7 +79,7 @@ func (h *Hub) Run() {
 
 func initDB() error {
 	var err error
-	db, err = sql.Open("sqlite", "./data/rolls.db")
+	db, err = sql.Open("sqlite", "/data/rolls.db")
 	if err != nil {
 		return err
 	}
@@ -128,10 +128,10 @@ func rollD20(r *http.Request, character, reason string) (RollResult, error) {
 	total := roll + modifier
 
 	note := ""
-	switch {
-	case roll == 20:
+	switch roll {
+	case 20:
 		note = `<span style="color:var(--good)"><strong>*~* Natural 20! *~*</strong></span>`
-	case roll == 1:
+	case 1:
 		note = `<span style="color:var(--oxblood-bright)"><strong>......Natural 1......</strong></span>`
 	default:
 		// no special note
