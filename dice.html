@@ -173,17 +173,35 @@
     </div>
 
     <form class="card" hx-post="/roll" hx-target="#result">
+        <div class="section-label">Roll Type</div>
+    <select name="roll_type" id="roll-type">
+        <option value="storyteller">Storyteller</option>
+        <option value="d20">d20</option>
+        <option value="d100">d100 / Percentile</option>
+    </select><p></p>
+
+    <div class="roll-fields" data-system="storyteller">
+        <div class="section-label">Dice (e.g. 5d10)</div>
+        <input type="text" name="notation" value="5d10">
+        <div class="section-label">Difficulty</div>
+        <input type="number" name="difficulty" value="6">
+    </div>
+
+    <div class="roll-fields" data-system="d20" style="display:none">
+        <div class="section-label">Modifier</div>
+        <input type="number" name="modifier" value="0">
+    </div>
+
+    <div class="roll-fields" data-system="d100" style="display:none">
+        <div class="section-label">Target % (roll under)</div>
+        <input type="number" name="target_pct" value="50">
+    </div>
+
         <div class="section-label">Character name (optional but please fill in)</div>
         <input type="text" name="character" placeholder="e.g. Alice">
 
         <div class="section-label">Reason (optional)</div>
         <input type="text" name="reason" placeholder="e.g. Dex + Wits, dominate the scribe">
-
-        <div class="section-label">Dice (in form of XdY)</div>
-        <input type="text" name="notation" placeholder="e.g. 5d10" value="5d10">
-
-        <div class="section-label">Difficulty</div>
-        <input type="number" name="difficulty" placeholder="Difficulty" value="6">
 
         <div class="section-label">Table Passphrase</div>
         <input type="text" name="password" placeholder="are you at the table?">
@@ -194,4 +212,11 @@
     <div id="result"></div>
     <div id="roll-log" hx-ext="sse" sse-connect="/events" sse-swap="message" hx-swap="afterbegin"></div>
 </body>
+<script>
+    document.getElementById('roll-type').addEventListener('change', function (e) {
+        document.querySelectorAll('.roll-fields').forEach(function (el) {
+            el.style.display = (el.dataset.system === e.target.value) ? '' : 'none';
+        });
+    });
+</script>
 </html>

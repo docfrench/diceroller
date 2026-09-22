@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -21,6 +22,16 @@ import (
 var db *sql.DB
 
 var diceNotation = regexp.MustCompile(`^(\d+)d(\d+)([+-]\d+)?$`)
+
+type RollResult struct {
+	Display    string
+	LogLine    string
+	Rolls      []int
+	RollType   string
+	Successes  *int // nil when the system has no success-count concept
+	Difficulty *int
+	Notation   string
+}
 
 type Hub struct {
 	clients    map[chan string]bool
@@ -84,10 +95,11 @@ func initDB() error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			character TEXT,
 			reason TEXT,
-			notation TEXT NOT NULL,
-			difficulty INTEGER NOT NULL,
-			successes INTEGER NOT NULL,
+			notation TEXT,
+			difficulty INTEGER,
+			successes INTEGER,
 			rolls TEXT NOT NULL,
+			roll_type TEXT NOT NULL DEFAULT 'storyteller',
 			rolled_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);
 	`)
@@ -106,121 +118,219 @@ func HomePage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func rollD20(r *http.Request, character, reason string) (RollResult, error) {
+	modifier, err := strconv.Atoi(r.FormValue("modifier"))
+	if err != nil {
+		modifier = 0
+	}
+
+	roll := rand.Intn(20) + 1
+	total := roll + modifier
+
+	note := ""
+	if roll == 20 {
+		note = `<span style="color:var(--good)"><strong>*~* Natural 20! *~*</strong></span>`
+	} else if roll == 1 {
+		note = `<span style="color:var(--oxblood-bright)"><strong>......Natural 1......</strong></span>`
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, `<p><div align="center">%s rolled <strong>d20%+d</strong><br><br>Roll: %d<br><br>Total: <strong>%d</strong><br><br>%s</div></p>`,
+		character, modifier, roll, total, note)
+	logLine := fmt.Sprintf("%s rolled 1d20+%d to %s: %d + %d = %d total (%s)", character, modifier, reason, roll, modifier, total, time.Now().Format("03:04PM"))
+
+	return RollResult{Display: b.String(), LogLine: logLine, Rolls: []int{roll}, RollType: "d20"}, nil
+}
+
+func rollD100(r *http.Request, character, reason string) (RollResult, error) {
+	target, err := strconv.Atoi(r.FormValue("target_pct"))
+	if err != nil || target < 1 || target > 100 {
+		return RollResult{}, fmt.Errorf("invalid target: %s", r.FormValue("target_pct"))
+	}
+
+	roll := rand.Intn(100) + 1
+	var outcome, display string
+
+	if roll <= target {
+		outcome = "Success"
+		display = fmt.Sprintf(`<div align="center"><p>%s rolled <strong>d100</strong> vs target %d%%<br><br><span style="color:var(--good)">Roll: %d<br><br><strong>%s</strong></span></p></div>`,
+			character, target, roll, outcome)
+	} else {
+		outcome = "Failure"
+		display = fmt.Sprintf(`<div align="center"><p>%s rolled <strong>d100</strong> vs target %d%%<br><br><span style="color:var(--oxblood-bright)">Roll: %d<br><br><strong>%s</strong></span></p></div>`,
+			character, target, roll, outcome)
+	}
+
+	logLine := fmt.Sprintf("%s rolled %d against %d to %s: %s (%s)", character, roll, target, reason, outcome, time.Now().Format("03:04PM"))
+
+	return RollResult{
+		Display:  display,
+		LogLine:  logLine,
+		Rolls:    []int{roll},
+		RollType: "d100",
+	}, nil
+}
+
+func rollStoryteller(r *http.Request, character, reason string) (RollResult, error) {
+	notation := r.FormValue("notation")
+	difficulty, err := strconv.Atoi(r.FormValue("difficulty"))
+	if err != nil || difficulty < 2 || difficulty > 10 {
+		return RollResult{}, fmt.Errorf("invalid difficulty: %s", r.FormValue("difficulty"))
+	}
+
+	matches := diceNotation.FindStringSubmatch(notation)
+	if matches == nil {
+		return RollResult{}, fmt.Errorf("invalid notation: %s", notation)
+	}
+	count, _ := strconv.Atoi(matches[1])
+	sides, _ := strconv.Atoi(matches[2])
+
+	rolls := make([]int, count)
+	successes := 0
+	for i := 0; i < count; i++ {
+		roll := rand.Intn(sides) + 1
+		rolls[i] = roll
+		if roll >= difficulty {
+			successes++
+		}
+		if roll == 1 {
+			successes--
+		}
+	}
+
+	var b strings.Builder
+
+	if reason != "" {
+		fmt.Fprintf(&b, `<p class="roll-reason">%s</p>`, reason)
+	}
+
+	fmt.Fprintf(&b, `<p>%s rolled <strong>%d</strong> dice against difficulty %d → <br><br> <b>Rolls: %v</b><br><br>`,
+		character, count, difficulty, rolls)
+
+	if successes > 0 {
+		fmt.Fprintf(&b, `<span style="color:var(--good)"><strong>%d successes</strong></span></p>`, successes)
+	} else {
+		fmt.Fprintf(&b, `<span style="color:var(--oxblood-bright)"><strong>%d successes</strong></span></p>`, successes)
+	}
+
+	sortedRolls := make([]int, count)
+	copy(sortedRolls, rolls)
+	sort.Sort(sort.Reverse(sort.IntSlice(sortedRolls)))
+
+	for i := 0; i < count; i++ {
+		switch {
+		case sortedRolls[i] >= difficulty:
+			fmt.Fprintf(&b, `<span style="color:var(--good)">%d success</span><br> `, sortedRolls[i])
+		case sortedRolls[i] == 1:
+			fmt.Fprintf(&b, `<span style="color:var(--oxblood-bright)">** %d botch **</span><br> `, sortedRolls[i])
+		default:
+			fmt.Fprintf(&b, `<span style="color:var(--parchment-dim)">%d failure</span><br> `, sortedRolls[i])
+		}
+	}
+
+	logLine := fmt.Sprintf("%s rolled %d dice to %s: %d successes (%s)", character, count, reason, successes, time.Now().Format("03:04PM"))
+
+	return RollResult{
+		Display:    b.String(),
+		LogLine:    logLine,
+		Rolls:      rolls,
+		RollType:   "storyteller",
+		Notation:   notation,
+		Difficulty: &difficulty,
+		Successes:  &successes,
+	}, nil
+}
+
 func RollHandler(hub *Hub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		tablePassphrase := os.Getenv("TABLE_PASS")
-		if r.FormValue("password") != tablePassphrase {
+		if r.FormValue("password") != os.Getenv("TABLE_PASS") {
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = fmt.Fprint(w, `<p>Wrong passphrase.</p>`)
 			return
 		}
 
-		notation := r.FormValue("notation")
-		reason := r.FormValue("reason")
 		character := r.FormValue("character")
-		difficulty, err := strconv.Atoi(r.FormValue("difficulty"))
-		if err != nil || difficulty < 2 || difficulty > 10 {
-			_, _ = fmt.Fprintf(w, `<p>Invalid difficulty: %s</p>`, r.FormValue("difficulty"))
+		reason := r.FormValue("reason")
+		rollType := r.FormValue("roll_type")
+
+		var result RollResult
+		var err error
+
+		switch rollType {
+		case "d20":
+			result, err = rollD20(r, character, reason)
+		case "d100":
+			result, err = rollD100(r, character, reason)
+		default:
+			result, err = rollStoryteller(r, character, reason)
+		}
+
+		if err != nil {
+			_, _ = fmt.Fprintf(w, `<p>%v</p>`, err)
 			return
 		}
 
-		matches := diceNotation.FindStringSubmatch(notation)
-		if matches == nil {
-			_, _ = fmt.Fprintf(w, `<p>Invalid notation: %s</p>`, notation)
-			return
-		}
+		_, _ = fmt.Fprint(w, result.Display)
 
-		count, _ := strconv.Atoi(matches[1])
-		sides, _ := strconv.Atoi(matches[2])
-
-		rolls := make([]int, count)
-		successes := 0
-		for i := 0; i < count; i++ {
-			roll := rand.Intn(sides) + 1
-			rolls[i] = roll
-			if roll >= difficulty {
-				successes++
-			}
-			if roll == 1 {
-				successes-- // botch in Storyteller system
-			}
-		}
-
-		if reason != "" {
-			_, _ = fmt.Fprintf(w, `<p class="roll-reason">%s</p>`, reason)
-		}
-
-		_, _ = fmt.Fprintf(w, `<p>%s rolled <strong>%d</strong> dice against difficulty %d → <br><br> <b>Rolls: %v</b><br><br>`,
-			character, count, difficulty, rolls)
-		if successes > 0 {
-			_, _ = fmt.Fprintf(w, `<span style="color:var(--good)"><strong>%d successes</strong></span></p>`, successes)
-		} else {
-			_, _ = fmt.Fprintf(w, `<span style="color:var(--oxblood-bright)"><strong>%d successes</strong></span></p>`, successes)
-		}
-		sort.Sort(sort.Reverse(sort.IntSlice(rolls)))
-		for i := 0; i < count; i++ {
-			if rolls[i] >= difficulty {
-				_, _ = fmt.Fprintf(w, `<span style="color:var(--good)">%d success</span><br> `, rolls[i])
-			} else if rolls[i] == 1 {
-				_, _ = fmt.Fprintf(w, `<span style="color:var(--oxblood-bright)">** %d botch **</span><br> `, rolls[i])
-			} else {
-				_, _ = fmt.Fprintf(w, `<span style="color:var(--parchment-dim)">%d failure</span><br> `, rolls[i])
-			}
-		}
-		rollsJSON, err := json.Marshal(rolls)
+		rollsJSON, err := json.Marshal(result.Rolls)
 		if err != nil {
 			log.Print("error marshaling rolls: ", err)
 		}
+
+		var difficulty sql.NullInt64
+		if result.Difficulty != nil {
+			difficulty = sql.NullInt64{Int64: int64(*result.Difficulty), Valid: true}
+		}
+		var successes sql.NullInt64
+		if result.Successes != nil {
+			successes = sql.NullInt64{Int64: int64(*result.Successes), Valid: true}
+		}
+
 		_, err = db.Exec(
-			`INSERT INTO rolls (character, reason, notation, difficulty, rolls, successes) VALUES (?, ?, ?, ?, ?, ?)`,
-			character, reason, notation, difficulty, rollsJSON, successes,
+			`INSERT INTO rolls (character, reason, roll_type, notation, difficulty, successes, rolls) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			character, reason, result.RollType, result.Notation, difficulty, successes, string(rollsJSON),
 		)
 		if err != nil {
 			log.Print("error saving roll: ", err)
-
 		}
-		line := formatRollLine(character, reason, successes)
-		htmlLine := fmt.Sprintf(`<div class="roll-entry">%s</div>`, line)
-
+		htmlLine := fmt.Sprintf(`<div class="roll-entry">%s [%s]</div>`, result.LogLine, result.RollType)
 		select {
 		case hub.broadcast <- htmlLine:
 		default:
-			// nobody's listening right now, or the hub's momentarily busy —
-			// don't let a broadcast stall the roller's own response
 		}
 	}
 }
 
 func recentRolls(limit int) ([]string, error) {
 	rows, err := db.Query(
-		`SELECT character, reason, successes, rolled_at FROM rolls ORDER BY rolled_at DESC LIMIT ?`,
+		`SELECT character, reason, successes, rolled_at, roll_type FROM rolls ORDER BY rolled_at DESC LIMIT ?`,
 		limit,
 	)
 	if err != nil {
 		return nil, err
 	}
-
-	defer func() {
-		if err := rows.Close(); err != nil {
-			log.Print("error closing rows: ", err)
-		}
-	}()
+	defer rows.Close()
 
 	var lines []string
 	for rows.Next() {
 		var character, reason string
-		var successes int
+		var successes sql.NullInt64
 		var rolledAt time.Time
-		if err := rows.Scan(&character, &reason, &successes, &rolledAt); err != nil {
+		var rollType string
+		if err := rows.Scan(&character, &reason, &successes, &rolledAt, &rollType); err != nil {
 			return nil, err
 		}
-		lines = append(lines, formatRollLineAt(character, reason, successes, rolledAt))
+
+		successCount := 0
+		if successes.Valid {
+			successCount = int(successes.Int64)
+		}
+		lines = append(lines, formatRollLineAt(character, reason, successCount, rollType, rolledAt))
 	}
 	return lines, rows.Err()
 }
 
-func formatRollLineAt(character, reason string, successes int, t time.Time) string {
-	// same body as formatRollLine, but using t.Format(...) instead of time.Now().Format(...)
+func formatRollLineAt(character, reason string, successes int, rollType string, t time.Time) string {
 	label := character
 	if label == "" {
 		label = "Someone"
@@ -236,8 +346,8 @@ func formatRollLineAt(character, reason string, successes int, t time.Time) stri
 		successWord = "success"
 	}
 
-	return fmt.Sprintf("%s rolled %s: %d %s (%s)",
-		label, action, successes, successWord, t.Format("03:04:05PM"))
+	return fmt.Sprintf("%s rolled %s: %d %s (%s) [%s]",
+		label, action, successes, successWord, t.Format("03:04PM"), rollType)
 }
 
 func EventsHandler(hub *Hub) http.HandlerFunc {
@@ -287,26 +397,6 @@ func EventsHandler(hub *Hub) http.HandlerFunc {
 			}
 		}
 	}
-}
-
-func formatRollLine(character, reason string, successes int) string {
-	label := character
-	if label == "" {
-		label = "Someone"
-	}
-
-	action := reason
-	if action == "" {
-		action = "a roll"
-	}
-
-	successWord := "successes"
-	if successes == 1 {
-		successWord = "success"
-	}
-
-	return fmt.Sprintf("%s rolled %s: %d %s (%s)",
-		label, action, successes, successWord, time.Now().Format("03:04:05PM"))
 }
 
 func main() {
