@@ -250,7 +250,7 @@ func rollD100(r *http.Request, character, reason string) (RollResult, error) {
 	return RollResult{
 		Display:  display,
 		LogLine:  logLine,
-		Notation: notation,
+		Notation: r.FormValue("target_pct"),
 		Rolls:    []int{roll},
 		RollType: "d100",
 	}, nil
