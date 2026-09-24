@@ -28,6 +28,8 @@ type RollResult struct {
 	LogLine    string
 	Rolls      []int
 	RollType   string
+	Modifier   int
+	Total      int
 	Successes  *int // nil when the system has no success-count concept
 	Difficulty *int
 	Notation   string
@@ -99,6 +101,8 @@ func initDB() error {
 			difficulty INTEGER,
 			successes INTEGER,
 			rolls TEXT NOT NULL,
+			total INTEGER NOT NULL DEFAULT 0,
+			modifier INTEGER NOT NULL DEFAULT 0,
 			roll_type TEXT NOT NULL DEFAULT 'storyteller',
 			rolled_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);
@@ -119,30 +123,107 @@ func HomePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func rollD20(r *http.Request, character, reason string) (RollResult, error) {
+
+	notation := r.FormValue("d20_notation")
 	modifier, err := strconv.Atoi(r.FormValue("modifier"))
+	advantage := r.FormValue("d20_adv")
+	note := ""
+
+	var b strings.Builder
+	var roll1, roll2, total int
+	var logLine string
+
+	matches := diceNotation.FindStringSubmatch(notation)
+	if matches == nil {
+		return RollResult{}, fmt.Errorf("invalid notation: %s", notation)
+	}
+	count, _ := strconv.Atoi(matches[1])
+	sides, _ := strconv.Atoi(matches[2])
+
 	if err != nil {
 		modifier = 0
 	}
 
-	roll := rand.Intn(20) + 1
-	total := roll + modifier
-
-	note := ""
-	switch roll {
+	switch sides {
 	case 20:
-		note = `<span style="color:var(--good)"><strong>*~* Natural 20! *~*</strong></span>`
-	case 1:
-		note = `<span style="color:var(--oxblood-bright)"><strong>......Natural 1......</strong></span>`
+		switch advantage {
+		case "advantage":
+			roll1 = rand.Intn(20) + 1
+			roll2 = rand.Intn(20) + 1
+			if roll2 > roll1 {
+				a := roll1
+				roll1 = roll2
+				roll2 = a
+			}
+			switch roll1 {
+			case 20:
+				note = `<span style="color:var(--good)"><br><br><strong>*~* Natural 20! *~*</strong></span>`
+			case 1:
+				note = `<span style="color:var(--oxblood-bright)"><br><br><strong>......Natural 1......</strong></span>`
+			default:
+				// no special note
+			}
+			total = roll1 + modifier
+			fmt.Fprintf(&b, `<p><div align="center">%s rolled a <strong>d20</strong> with advantage%s<br><br>Rolls: %d and %d<br><br>Total: <strong>%d</strong></div></p>`, character, note, roll1, roll2, total)
+		case "disadvantage":
+			roll1 = rand.Intn(20) + 1
+			roll2 = rand.Intn(20) + 1
+			if roll2 < roll1 {
+				a := roll1
+				roll1 = roll2
+				roll2 = a
+			}
+			switch roll1 {
+			case 20:
+				note = `<span style="color:var(--good)"><br><br><strong>*~* Natural 20! *~*</strong></span>`
+			case 1:
+				note = `<span style="color:var(--oxblood-bright)"><br><br><strong>......Natural 1......</strong></span>`
+			default:
+				// no special note
+			}
+			total = roll1 + modifier
+			fmt.Fprintf(&b, `<p><div align="center">%s rolled a <strong>d20</strong> with disadvantage%s<br><br>Rolls: %d and %d<br><br>Total: <strong>%d</strong></div></p>`, character, note, roll1, roll2, total)
+		default:
+			roll1 = rand.Intn(20) + 1
+
+			total = roll1 + modifier
+
+			switch roll1 {
+			case 20:
+				note = `<span style="color:var(--good)"><br><br><strong>*~* Natural 20! *~*</strong></span>`
+			case 1:
+				note = `<span style="color:var(--oxblood-bright)"><br><br><strong>......Natural 1......</strong></span>`
+			default:
+				// no special note
+			}
+
+			fmt.Fprintf(&b, `<p><div align="center">%s rolled <strong>d20%+d</strong>%s<br><br>Roll: %d<br><br>Total: <strong>%d</strong></div></p>`,
+				character, modifier, note, roll1, total)
+		}
+		logLine = fmt.Sprintf("%s rolled %s+%d to %s: %d + %d = %d total (%s)", character, notation, modifier, reason, roll1, modifier, total, time.Now().Format("03:04PM"))
 	default:
-		// no special note
+		fmt.Fprintf(&b, `<p><div align="center">%s rolled <strong>%s+%d</strong> to %s<br><br>`,
+			character, notation, modifier, reason)
+		for i := 0; i < count; i++ {
+			roll := rand.Intn(sides) + 1
+			total += roll
+			fmt.Fprintf(&b, `Roll: %d<br>`, roll)
+		}
+		total += modifier
+		fmt.Fprintf(&b, `Total: <strong>%d</strong></div></p>`, total)
+		logLine = fmt.Sprintf("%s rolled %s+%d to %s: %d total (%s)", character, notation, modifier, reason, total, time.Now().Format("03:04PM"))
 	}
 
-	var b strings.Builder
-	fmt.Fprintf(&b, `<p><div align="center">%s rolled <strong>d20%+d</strong><br><br>Roll: %d<br><br>Total: <strong>%d</strong><br><br>%s</div></p>`,
-		character, modifier, roll, total, note)
-	logLine := fmt.Sprintf("%s rolled 1d20+%d to %s: %d + %d = %d total (%s)", character, modifier, reason, roll, modifier, total, time.Now().Format("03:04PM"))
+	return RollResult{
+		Display:  b.String(),
+		LogLine:  logLine,
+		Notation: notation,
+		Modifier: modifier,
+		Total:    total,
+		Rolls:    []int{roll1, roll2},
+		RollType: "d20",
+	}, nil
 
-	return RollResult{Display: b.String(), LogLine: logLine, Rolls: []int{roll}, RollType: "d20"}, nil
 }
 
 func rollD100(r *http.Request, character, reason string) (RollResult, error) {
@@ -169,13 +250,14 @@ func rollD100(r *http.Request, character, reason string) (RollResult, error) {
 	return RollResult{
 		Display:  display,
 		LogLine:  logLine,
+		Notation: r.FormValue("target_pct"),
 		Rolls:    []int{roll},
 		RollType: "d100",
 	}, nil
 }
 
 func rollStoryteller(r *http.Request, character, reason string) (RollResult, error) {
-	notation := r.FormValue("notation")
+	notation := r.FormValue("st_notation")
 	difficulty, err := strconv.Atoi(r.FormValue("difficulty"))
 	if err != nil || difficulty < 2 || difficulty > 10 {
 		return RollResult{}, fmt.Errorf("invalid difficulty: %s", r.FormValue("difficulty"))
@@ -290,8 +372,8 @@ func RollHandler(hub *Hub) http.HandlerFunc {
 		}
 
 		_, err = db.Exec(
-			`INSERT INTO rolls (character, reason, roll_type, notation, difficulty, successes, rolls) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			character, reason, result.RollType, result.Notation, difficulty, successes, string(rollsJSON),
+			`INSERT INTO rolls (character, reason, roll_type, notation, difficulty, successes, rolls, total, modifier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			character, reason, result.RollType, result.Notation, difficulty, successes, string(rollsJSON), result.Total, result.Modifier,
 		)
 		if err != nil {
 			log.Print("error saving roll: ", err)
@@ -306,7 +388,7 @@ func RollHandler(hub *Hub) http.HandlerFunc {
 
 func recentRolls(limit int) ([]string, error) {
 	rows, err := db.Query(
-		`SELECT character, reason, successes, rolled_at, roll_type FROM rolls ORDER BY rolled_at DESC LIMIT ?`,
+		`SELECT character, reason, notation, successes, rolled_at, roll_type, total, modifier FROM rolls ORDER BY rolled_at DESC LIMIT ?`,
 		limit,
 	)
 	if err != nil {
@@ -323,8 +405,9 @@ func recentRolls(limit int) ([]string, error) {
 		var character, reason string
 		var successes sql.NullInt64
 		var rolledAt time.Time
-		var rollType string
-		if err := rows.Scan(&character, &reason, &successes, &rolledAt, &rollType); err != nil {
+		var rollType, notation string
+		var modifier, total int
+		if err := rows.Scan(&character, &reason, &notation, &successes, &rolledAt, &rollType, &total, &modifier); err != nil {
 			return nil, err
 		}
 
@@ -332,12 +415,12 @@ func recentRolls(limit int) ([]string, error) {
 		if successes.Valid {
 			successCount = int(successes.Int64)
 		}
-		lines = append(lines, formatRollLineAt(character, reason, successCount, rollType, rolledAt))
+		lines = append(lines, formatRollLineAt(character, reason, notation, successCount, rollType, rolledAt, modifier, total))
 	}
 	return lines, rows.Err()
 }
 
-func formatRollLineAt(character, reason string, successes int, rollType string, t time.Time) string {
+func formatRollLineAt(character, reason, notation string, successes int, rollType string, t time.Time, modifier, total int) string {
 	label := character
 	if label == "" {
 		label = "Someone"
@@ -352,9 +435,29 @@ func formatRollLineAt(character, reason string, successes int, rollType string, 
 	if successes == 1 {
 		successWord = "success"
 	}
+	switch rollType {
+	case "d20":
+		if modifier != 0 {
+			action = fmt.Sprintf("%s (%s%+d)", action, notation, modifier)
+		} else {
+			action = fmt.Sprintf("%s (%s)", action, notation)
+		}
+		return fmt.Sprintf("%s rolled %s: %d (%s) [%s]",
+			label, action, total, t.Format("03:04PM"), rollType)
+	case "d100":
+		action = fmt.Sprintf("%s (1d100)", action)
+		return fmt.Sprintf("%s rolled %s: %s (%s) [%s]",
+			label, action, successWord, t.Format("03:04PM"), rollType)
+	case "storyteller":
+		action = fmt.Sprintf("%s (%s)", action, rollType)
+		return fmt.Sprintf("%s rolled %s: %d %s (%s) [%s]",
+			label, action, successes, successWord, t.Format("03:04PM"), rollType)
+	default:
+		action = fmt.Sprintf("%s (%s)", action, rollType)
+		return fmt.Sprintf("%s rolled %s: %d %s (%s) [%s]",
+			label, action, successes, successWord, t.Format("03:04PM"), rollType)
+	}
 
-	return fmt.Sprintf("%s rolled %s: %d %s (%s) [%s]",
-		label, action, successes, successWord, t.Format("03:04PM"), rollType)
 }
 
 func EventsHandler(hub *Hub) http.HandlerFunc {
@@ -425,5 +528,6 @@ func main() {
 	http.HandleFunc("/", HomePage)
 	http.HandleFunc("/roll", RollHandler(hub))
 	http.HandleFunc("/events", EventsHandler(hub))
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
