@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"os"
@@ -81,7 +82,7 @@ func (h *Hub) Run() {
 
 func initDB() error {
 	var err error
-	db, err = sql.Open("sqlite", "/data/rolls.db")
+	db, err = sql.Open("sqlite", "./data/rolls.db")
 	if err != nil {
 		return err
 	}
@@ -231,24 +232,58 @@ func rollD100(r *http.Request, character, reason string) (RollResult, error) {
 	if err != nil || target < 1 || target > 100 {
 		return RollResult{}, fmt.Errorf("invalid target: %s", r.FormValue("target_pct"))
 	}
+	var outcome string
+	var b strings.Builder
 
+	ruleset := r.FormValue("d100_rul")
 	roll := rand.Intn(100) + 1
-	var outcome, display string
+	rollstr := strconv.Itoa(roll)
 
-	if roll <= target {
-		outcome = "Success"
-		display = fmt.Sprintf(`<div align="center"><p>%s rolled <strong>d100</strong> vs target %d%%<br><br><span style="color:var(--good)">Roll: %d<br><br><strong>%s</strong></span></p></div>`,
-			character, target, roll, outcome)
-	} else {
-		outcome = "Failure"
-		display = fmt.Sprintf(`<div align="center"><p>%s rolled <strong>d100</strong> vs target %d%%<br><br><span style="color:var(--oxblood-bright)">Roll: %d<br><br><strong>%s</strong></span></p></div>`,
-			character, target, roll, outcome)
+	switch ruleset {
+	case "delta_g":
+		if roll <= target {
+			fmt.Fprintf(&b, `<div align="center"><p>%s rolled <strong>d100</strong> vs target %d%%<br><br><span style="color:var(--good)">Roll: %d`,
+				character, target, roll)
+			if roll > 9 && rollstr[0] == rollstr[1] {
+				fmt.Fprintf(&b, `<br><br>Critical Success</span></p></div>`)
+			} else {
+				fmt.Fprintf(&b, `<br><br>Success</span></p></div>`)
+			}
+		} else {
+			fmt.Fprintf(&b, `<div align="center"><p>%s rolled <strong>d100</strong> vs target %d%%<br><br><span style="color:var(--oxblood-bright)">Roll: %d`,
+				character, target, roll)
+			if roll > 9 && rollstr[0] == rollstr[1] {
+				fmt.Fprintf(&b, `<br><br>Critical Failure</span></p></div>`)
+			} else {
+				fmt.Fprintf(&b, `<br><br>Failure</span></p></div>`)
+			}
+		}
+	case "cthulhu":
+		hard := int(math.Floor(float64(target) / 2))
+		extreme := int(math.Floor(float64(target) / 5))
+		if roll <= target {
+			fmt.Fprintf(&b, `<div align="center"><p>%s rolled <strong>d100</strong> vs target %d%%<br><br><span style="color:var(--good)">Roll: %d`,
+				character, target, roll)
+			if roll < extreme {
+				fmt.Fprintf(&b, `<br><br>Extreme Success</span></p></div>`)
+			} else if roll < hard {
+				fmt.Fprintf(&b, `<br><br>Hard Success</span></p></div>`)
+			} else {
+				fmt.Fprintf(&b, `<br><br>Success</span></p></div>`)
+			}
+		} else {
+			fmt.Fprintf(&b, `<div align="center"><p>%s rolled <strong>d100</strong> vs target %d%%<br><br><span style="color:var(--oxblood-bright)">Roll: %d<br><br>Failure</span></p></div>`,
+				character, target, roll)
+
+		}
+	default:
+		return RollResult{}, fmt.Errorf("invalid ruleset: %s", ruleset)
 	}
 
 	logLine := fmt.Sprintf("%s rolled %d against %d to %s: %s (%s)", character, roll, target, reason, outcome, time.Now().Format("03:04PM"))
 
 	return RollResult{
-		Display:  display,
+		Display:  b.String(),
 		LogLine:  logLine,
 		Notation: r.FormValue("target_pct"),
 		Rolls:    []int{roll},
@@ -388,7 +423,7 @@ func RollHandler(hub *Hub) http.HandlerFunc {
 
 func recentRolls(limit int) ([]string, error) {
 	rows, err := db.Query(
-		`SELECT character, reason, notation, successes, rolled_at, roll_type, total, modifier FROM rolls ORDER BY rolled_at DESC LIMIT ?`,
+		`SELECT character, reason, notation, successes, rolled_at, roll_type, total, modifier, rolls FROM rolls ORDER BY rolled_at DESC LIMIT ?`,
 		limit,
 	)
 	if err != nil {
@@ -405,9 +440,11 @@ func recentRolls(limit int) ([]string, error) {
 		var character, reason string
 		var successes sql.NullInt64
 		var rolledAt time.Time
+		var rolls []byte
+
 		var rollType, notation string
 		var modifier, total sql.NullInt64
-		if err := rows.Scan(&character, &reason, &notation, &successes, &rolledAt, &rollType, &total, &modifier); err != nil {
+		if err := rows.Scan(&character, &reason, &notation, &successes, &rolledAt, &rollType, &total, &modifier, &rolls); err != nil {
 			return nil, err
 		}
 
@@ -423,12 +460,12 @@ func recentRolls(limit int) ([]string, error) {
 		if total.Valid {
 			totalValue = int(total.Int64)
 		}
-		lines = append(lines, formatRollLineAt(character, reason, notation, successCount, rollType, rolledAt, modifierValue, totalValue))
+		lines = append(lines, formatRollLineAt(character, reason, notation, successCount, rollType, rolledAt, modifierValue, totalValue, json.RawMessage(rolls)))
 	}
 	return lines, rows.Err()
 }
 
-func formatRollLineAt(character, reason, notation string, successes int, rollType string, t time.Time, modifier, total int) string {
+func formatRollLineAt(character, reason, notation string, successes int, rollType string, t time.Time, modifier, total int, rolls json.RawMessage) string {
 	label := character
 	if label == "" {
 		label = "Someone"
@@ -454,8 +491,19 @@ func formatRollLineAt(character, reason, notation string, successes int, rollTyp
 			label, action, total, t.Format("03:04PM"), rollType)
 	case "d100":
 		action = fmt.Sprintf("%s (1d100)", action)
-		return fmt.Sprintf("%s rolled %s: %s (%s) [%s]",
-			label, action, successWord, t.Format("03:04PM"), rollType)
+		var dicerolls []int
+
+		if err := json.Unmarshal(rolls, &dicerolls); err != nil {
+			log.Print("error unmarshaling rolls for log line: ", err)
+		}
+
+		rollValue := 0
+		if len(dicerolls) > 0 {
+			rollValue = dicerolls[0]
+		}
+
+		return fmt.Sprintf("%s rolled %s: %d (%s) [%s]",
+			label, action, rollValue, t.Format("03:04PM"), rollType)
 	case "storyteller":
 		action = fmt.Sprintf("%s (%s)", action, rollType)
 		return fmt.Sprintf("%s rolled %s: %d %s (%s) [%s]",
