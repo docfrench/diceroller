@@ -406,7 +406,7 @@ func recentRolls(limit int) ([]string, error) {
 		var successes sql.NullInt64
 		var rolledAt time.Time
 		var rollType, notation string
-		var modifier, total int
+		var modifier, total sql.NullInt64
 		if err := rows.Scan(&character, &reason, &notation, &successes, &rolledAt, &rollType, &total, &modifier); err != nil {
 			return nil, err
 		}
@@ -415,7 +415,15 @@ func recentRolls(limit int) ([]string, error) {
 		if successes.Valid {
 			successCount = int(successes.Int64)
 		}
-		lines = append(lines, formatRollLineAt(character, reason, notation, successCount, rollType, rolledAt, modifier, total))
+		modifierValue := 0
+		if modifier.Valid {
+			modifierValue = int(modifier.Int64)
+		}
+		totalValue := 0
+		if total.Valid {
+			totalValue = int(total.Int64)
+		}
+		lines = append(lines, formatRollLineAt(character, reason, notation, successCount, rollType, rolledAt, modifierValue, totalValue))
 	}
 	return lines, rows.Err()
 }
