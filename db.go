@@ -7,10 +7,11 @@ import (
 )
 
 var db *sql.DB
+var dbPath string = "/data/rolls.db"
 
 func initDB() error {
 	var err error
-	db, err = sql.Open("sqlite", "/data/rolls.db")
+	db, err = sql.Open("sqlite", dbPath)
 	if err != nil {
 		return err
 	}
