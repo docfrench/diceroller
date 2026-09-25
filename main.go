@@ -207,7 +207,7 @@ func formatRollLineAt(character, reason, notation string, successes int, rollTyp
 	switch rollType {
 	case "d20":
 		if modifier != 0 {
-			action = fmt.Sprintf("%s (%s%+d)", action, notation, modifier)
+			action = fmt.Sprintf("%s (%s)", action, notation)
 		} else {
 			action = fmt.Sprintf("%s (%s)", action, notation)
 		}
