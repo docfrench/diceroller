@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,7 +15,11 @@ func TestInitDB(t *testing.T) {
 	// Reset the global database connection when the test finishes.
 	t.Cleanup(func() {
 		if db != nil {
-			db.Close()
+			defer func() {
+				if err := db.Close(); err != nil {
+					log.Print("error closing database: ", err)
+				}
+			}()
 			db = nil
 		}
 		dbPath = "/data/rolls.db"
@@ -55,7 +60,11 @@ func TestInitDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to inspect rolls table: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Print("error closing rows: ", err)
+		}
+	}()
 
 	expectedColumns := map[string]bool{
 		"id":         false,
