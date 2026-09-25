@@ -21,19 +21,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out code
-        uses: actions/checkout@v7
+     - name: Check out code
+       uses: actions/checkout@v7
 
-      - name: Test
-        run: go test -v ./...
+     - name: Set up Go
+       uses: actions/setup-go@v6
+       with:
+         go-version-file: go.mod
 
-      - name: Update coverage report
-        uses: ncruces/go-coverage-report@v0
-        if: github.event_name == 'push'
-        with:
-          report: true
-          chart: true
-          amend: true
+     - name: Test with coverage
+       run: go test -coverprofile=coverage.out ./...
+ 
+     - name: Upload coverage to Codecov
+       uses: codecov/codecov-action@v5
+       with:
+         files: ./coverage.out
+         fail_ci_if_error: true
 
   build-and-push:
     runs-on: ubuntu-latest
