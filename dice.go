@@ -136,16 +136,20 @@ func rollD100(r *http.Request, character, reason string) (RollResult, error) {
 				character, target, roll)
 			if roll > 9 && rollstr[0] == rollstr[1] {
 				fmt.Fprintf(&b, `<br><br>Critical Success</span></p></div>`)
+				outcome = "Critical Success"
 			} else {
 				fmt.Fprintf(&b, `<br><br>Success</span></p></div>`)
+				outcome = "Success"
 			}
 		} else {
 			fmt.Fprintf(&b, `<div align="center"><p>%s rolled <strong>d100</strong> vs target %d%%<br><br><span style="color:var(--oxblood-bright)">Roll: %d`,
 				character, target, roll)
 			if roll > 9 && rollstr[0] == rollstr[1] {
 				fmt.Fprintf(&b, `<br><br>Critical Failure</span></p></div>`)
+				outcome = "Critical Failure"
 			} else {
 				fmt.Fprintf(&b, `<br><br>Failure</span></p></div>`)
+				outcome = "Failure"
 			}
 		}
 	case "cthulhu":
@@ -156,14 +160,18 @@ func rollD100(r *http.Request, character, reason string) (RollResult, error) {
 				character, target, roll)
 			if roll < extreme {
 				fmt.Fprintf(&b, `<br><br>Extreme Success</span></p></div>`)
+				outcome = "Extreme Success"
 			} else if roll < hard {
 				fmt.Fprintf(&b, `<br><br>Hard Success</span></p></div>`)
+				outcome = "Hard Success"
 			} else {
 				fmt.Fprintf(&b, `<br><br>Success</span></p></div>`)
+				outcome = "Success"
 			}
 		} else {
 			fmt.Fprintf(&b, `<div align="center"><p>%s rolled <strong>d100</strong> vs target %d%%<br><br><span style="color:var(--oxblood-bright)">Roll: %d<br><br>Failure</span></p></div>`,
 				character, target, roll)
+			outcome = "Failure"
 
 		}
 	default:
