@@ -10,7 +10,7 @@ var db *sql.DB
 
 func initDB() error {
 	var err error
-	db, err = sql.Open("sqlite", "./data/rolls.db")
+	db, err = sql.Open("sqlite", "/data/rolls.db")
 	if err != nil {
 		return err
 	}
