@@ -17,24 +17,23 @@ jobs:
       - name: Golangci-lint
         uses: golangci/golangci-lint-action@v9.3.0
 
-  go test:
+  test:
     runs-on: ubuntu-latest
 
     steps:
-       - name: Test
-         run: go test -v ./...
+      - name: Check out code
+        uses: actions/checkout@v7
 
-       - name: Update coverage report
-         uses: ncruces/go-coverage-report@v0
-         with:
-            report: true
-            chart: true
-            amend: true
-        if: |
-        matrix.os == 'ubuntu-latest' &&
-        github.event_name == 'push'  
-    continue-on-error: true
+      - name: Test
+        run: go test -v ./...
 
+      - name: Update coverage report
+        uses: ncruces/go-coverage-report@v0
+        if: github.event_name == 'push'
+        with:
+          report: true
+          chart: true
+          amend: true
 
   build-and-push:
     runs-on: ubuntu-latest
@@ -64,6 +63,7 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/dice_roller:${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/dice_roller:latest
+
   deploy:
     runs-on: self-hosted
     needs: build-and-push
@@ -92,9 +92,8 @@ jobs:
             -e TZ=America/New_York \
             -v /mnt/user/appdata/dice_roller:/data \
             -v /etc/localtime:/etc/localtime:ro \
-            ghcr.io/${{ github.repository_owner }}/dice_roller:${{ github.sha }} 
-            
-      
+            ghcr.io/${{ github.repository_owner }}/dice_roller:${{ github.sha }}
+
       - name: Remove .env
         if: always()
         run: rm -f /tmp/dice-deploy.env
