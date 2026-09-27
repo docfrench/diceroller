@@ -156,6 +156,7 @@ button:hover {
     max-width: 480px;
     margin: 20px auto 0;
     background: var(--panel);
+    font-size: 10px;
     border: 1px solid var(--panel-line);
     padding: 4px 20px;
     max-height: 300px;
@@ -187,4 +188,21 @@ button:hover {
     font-size: 13.5px;
     color: var(--parchment);
     cursor: pointer;
+}
+
+.roll-type-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.roll-type-row select {
+    flex: 1;
+}
+
+#roll-type-icon {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    flex-shrink: 0;
 }
