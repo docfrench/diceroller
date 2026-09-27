@@ -35,3 +35,11 @@ On clicking Roll, the app will roll the requested dice and present the formatted
 Although Character Name and Reason are optional, it is recommended to complete these fields to help with parsing the logs in the future. Additionally, it is planned to automate replication of the roll data into the database for the actively-running campaign hosted by <a href="https://github.com/docfrench/deimos_api">this API</a>. The goal is for roll history to be associated with the rest of the character data hosted there.
 
 Table passphrase is a simple 'gate check' to prevent webcrawlers from rolling dice.
+
+## Attributions
+
+Art sourced from the following:
+
+- <a href="https://openclipart.org/artist/GDJ">@GDJ</a>
+- <a href="https://pixabay.com/users/darkathena-5167878/?utm_source=link-attribution&utm_medium=referral&utm_campaign=image&utm_content=7321982">DarkAthena</a>
+- <a href="https://www.flaticon.com/free-icons/d20" title="d20 icons">D20 icons created by Magnific - Flaticon</a>
