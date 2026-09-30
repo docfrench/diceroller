@@ -190,8 +190,8 @@ func rollD100(r *http.Request, character, reason string) (RollResult, error) {
 }
 
 func rollStoryteller(r *http.Request, character, reason string) (RollResult, error) {
-	notation, err := strconv.Atoi(r.FormValue("st_notation"))
     st_notation:= r.FormValue("st_notation")
+    notation, _ := strconv.Atoi(r.FormValue("st_notation"))
 	difficulty, err := strconv.Atoi(r.FormValue("difficulty"))
 	if err != nil || difficulty < 2 || difficulty > 10 {
 		return RollResult{}, fmt.Errorf("invalid difficulty: %s", r.FormValue("difficulty"))
