@@ -229,7 +229,7 @@ func TestRollD100_InvalidRuleset(t *testing.T) {
 func TestRollStoryteller_SuccessCountConsistency(t *testing.T) {
 	for i := 0; i < 200; i++ {
 		r := formRequest(url.Values{
-			"st_notation": {"6d10"},
+			"st_notation": {"6"},
 			"difficulty":  {"6"},
 		})
 		res, err := rollStoryteller(r, "Jules", "resist frenzy")
