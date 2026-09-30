@@ -284,3 +284,98 @@ func TestRollStoryteller_InvalidNotation(t *testing.T) {
 		t.Fatal("expected error for invalid notation, got nil")
 	}
 }
+
+// ---- rollStoryteller: dice count bounds ----
+
+func TestRollStoryteller_InvalidDiceCount(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"empty", ""},
+		{"not a number", "banana"},
+		{"decimal", "5.5"},
+		{"leading space", " 5"},
+		{"zero", "0"},
+		{"negative", "-1"},
+		{"one over max", strconv.Itoa(maxStorytellerDice + 1)},
+		{"huge", "2000000000"},
+		{"overflows int", "99999999999999999999"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := formRequest(url.Values{
+				"st_notation": {tt.input},
+				"difficulty":  {"6"},
+			})
+
+			res, err := rollStoryteller(r, "Mia", "test")
+			if err == nil {
+				t.Fatalf("expected error for dice count %q, got nil", tt.input)
+			}
+
+			// On error we should get back the zero value, not a half-built result.
+			if res.Rolls != nil || res.Successes != nil {
+				t.Errorf("expected empty RollResult on error, got %+v", res)
+			}
+		})
+	}
+}
+
+func TestRollStoryteller_ValidDiceCountBoundaries(t *testing.T) {
+	tests := []struct {
+		name  string
+		count int
+	}{
+		{"minimum", 1},
+		{"typical", 5},
+		{"maximum", maxStorytellerDice},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := formRequest(url.Values{
+				"st_notation": {strconv.Itoa(tt.count)},
+				"difficulty":  {"6"},
+			})
+
+			res, err := rollStoryteller(r, "Mia", "test")
+			if err != nil {
+				t.Fatalf("unexpected error for count %d: %v", tt.count, err)
+			}
+
+			if len(res.Rolls) != tt.count {
+				t.Errorf("expected %d dice, got %d", tt.count, len(res.Rolls))
+			}
+
+			for _, roll := range res.Rolls {
+				if roll < 1 || roll > 10 {
+					t.Errorf("die value %d outside 1-10", roll)
+				}
+			}
+		})
+	}
+}
+
+// ---- rollStoryteller: difficulty bounds ----
+
+func TestRollStoryteller_ValidDifficultyBoundaries(t *testing.T) {
+	for _, difficulty := range []int{2, 6, 10} {
+		t.Run(strconv.Itoa(difficulty), func(t *testing.T) {
+			r := formRequest(url.Values{
+				"st_notation": {"5"},
+				"difficulty":  {strconv.Itoa(difficulty)},
+			})
+
+			res, err := rollStoryteller(r, "Mia", "test")
+			if err != nil {
+				t.Fatalf("unexpected error for difficulty %d: %v", difficulty, err)
+			}
+
+			if res.Difficulty == nil || *res.Difficulty != difficulty {
+				t.Errorf("expected difficulty %d recorded, got %v", difficulty, res.Difficulty)
+			}
+		})
+	}
+}
