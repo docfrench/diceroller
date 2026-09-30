@@ -264,7 +264,7 @@ func TestRollStoryteller_InvalidDifficulty(t *testing.T) {
 	cases := []string{"1", "11", "abc", ""}
 	for _, difficulty := range cases {
 		r := formRequest(url.Values{
-			"st_notation": {"5d10"},
+			"st_notation": {"5"},
 			"difficulty":  {difficulty},
 		})
 		_, err := rollStoryteller(r, "Kara", "test")
