@@ -189,24 +189,23 @@ func rollD100(r *http.Request, character, reason string) (RollResult, error) {
 	}, nil
 }
 
+const maxStorytellerDice = 50
+
 func rollStoryteller(r *http.Request, character, reason string) (RollResult, error) {
-	notation := r.FormValue("st_notation")
+
+	diceCount, err := strconv.Atoi(r.FormValue("st_notation"))
+	if err != nil || diceCount < 1 || diceCount > maxStorytellerDice {
+		return RollResult{}, fmt.Errorf("invalid dice count: %s", r.FormValue("st_notation"))
+	}
+
 	difficulty, err := strconv.Atoi(r.FormValue("difficulty"))
 	if err != nil || difficulty < 2 || difficulty > 10 {
 		return RollResult{}, fmt.Errorf("invalid difficulty: %s", r.FormValue("difficulty"))
 	}
-
-	matches := diceNotation.FindStringSubmatch(notation)
-	if matches == nil {
-		return RollResult{}, fmt.Errorf("invalid notation: %s", notation)
-	}
-	count, _ := strconv.Atoi(matches[1])
-	sides, _ := strconv.Atoi(matches[2])
-
-	rolls := make([]int, count)
+	rolls := make([]int, diceCount)
 	successes := 0
-	for i := 0; i < count; i++ {
-		roll := rand.Intn(sides) + 1
+	for i := 0; i < diceCount; i++ {
+		roll := rand.Intn(10) + 1
 		rolls[i] = roll
 		if roll >= difficulty {
 			successes++
@@ -223,7 +222,7 @@ func rollStoryteller(r *http.Request, character, reason string) (RollResult, err
 	}
 
 	fmt.Fprintf(&b, `<p>%s rolled <strong>%d</strong> dice against difficulty %d → <br><br> <b>Rolls: %v</b><br><br>`,
-		character, count, difficulty, rolls)
+		character, diceCount, difficulty, rolls)
 
 	if successes > 0 {
 		fmt.Fprintf(&b, `<span style="color:var(--good)"><strong>%d successes</strong></span></p>`, successes)
@@ -231,11 +230,11 @@ func rollStoryteller(r *http.Request, character, reason string) (RollResult, err
 		fmt.Fprintf(&b, `<span style="color:var(--oxblood-bright)"><strong>%d successes</strong></span></p>`, successes)
 	}
 
-	sortedRolls := make([]int, count)
+	sortedRolls := make([]int, diceCount)
 	copy(sortedRolls, rolls)
 	sort.Sort(sort.Reverse(sort.IntSlice(sortedRolls)))
 
-	for i := 0; i < count; i++ {
+	for i := 0; i < diceCount; i++ {
 		switch {
 		case sortedRolls[i] >= difficulty:
 			fmt.Fprintf(&b, `<span style="color:var(--good)">%d success</span><br> `, sortedRolls[i])
@@ -245,15 +244,15 @@ func rollStoryteller(r *http.Request, character, reason string) (RollResult, err
 			fmt.Fprintf(&b, `<span style="color:var(--parchment-dim)">%d failure</span><br> `, sortedRolls[i])
 		}
 	}
-
-	logLine := fmt.Sprintf("%s rolled %d dice to %s: %d successes (%s)", character, count, reason, successes, time.Now().Format("03:04PM"))
+	notOut := strconv.Itoa(diceCount)
+	logLine := fmt.Sprintf("%s rolled %d dice to %s: %d successes (%s)", character, diceCount, reason, successes, time.Now().Format("03:04PM"))
 
 	return RollResult{
 		Display:    b.String(),
 		LogLine:    logLine,
 		Rolls:      rolls,
 		RollType:   "storyteller",
-		Notation:   notation,
+		Notation:   notOut,
 		Difficulty: &difficulty,
 		Successes:  &successes,
 	}, nil
