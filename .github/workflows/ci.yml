@@ -30,12 +30,13 @@ jobs:
          go-version-file: go.mod
 
      - name: Test with coverage
-       run: go test -coverprofile=coverage.out ./...
+       run: go test -coverprofile=coverage.out ./... -covermode=atomic
  
      - name: Upload coverage to Codecov
        uses: codecov/codecov-action@v5
        with:
          files: ./coverage.out
+         token: ${{ secrets.CODECOV_TOKEN }}
          fail_ci_if_error: true
 
   build-and-push:
